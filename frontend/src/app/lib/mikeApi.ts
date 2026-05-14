@@ -183,10 +183,6 @@ export type ApiKeyStatus = Record<ApiKeyProvider, boolean> & {
     sources?: Partial<Record<ApiKeyProvider, ApiKeySource>>;
 };
 
-export async function getApiKeyStatus(): Promise<ApiKeyStatus> {
-    return apiRequest<ApiKeyStatus>("/user/api-keys");
-}
-
 export async function saveApiKey(
     provider: ApiKeyProvider,
     apiKey: string | null,
