@@ -2,13 +2,6 @@ import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { createServerSupabase } from "../lib/supabase";
 import { DEFAULT_TABULAR_MODEL, resolveModel } from "../lib/llm";
-import {
-  type ApiKeyStatus,
-  getUserApiKeyStatus,
-  hasEnvApiKey,
-  normalizeApiKeyProvider,
-  saveUserApiKey,
-} from "../lib/userApiKeys";
 
 export const userRouter = Router();
 
@@ -23,10 +16,7 @@ type UserProfileRow = {
   tabular_model: string;
 };
 
-function serializeProfile(
-  row: UserProfileRow,
-  apiKeyStatus?: ApiKeyStatus,
-) {
+function serializeProfile(row: UserProfileRow) {
   const creditsUsed = row.message_credits_used ?? 0;
   return {
     displayName: row.display_name,
@@ -36,7 +26,6 @@ function serializeProfile(
     creditsRemaining: Math.max(MONTHLY_CREDIT_LIMIT - creditsUsed, 0),
     tier: row.tier || "Free",
     tabularModel: resolveModel(row.tabular_model, DEFAULT_TABULAR_MODEL),
-    ...(apiKeyStatus ? { apiKeyStatus } : {}),
   };
 }
 
@@ -188,8 +177,7 @@ userRouter.get("/profile", requireAuth, async (_req, res) => {
     repairMissing: true,
   });
   if (error) return void res.status(500).json({ detail: error.message });
-  const apiKeyStatus = await getUserApiKeyStatus(userId, db);
-  res.json({ ...data, apiKeyStatus });
+  res.json(data);
 });
 
 // PATCH /user/profile
@@ -212,45 +200,7 @@ userRouter.patch("/profile", requireAuth, async (req, res) => {
 
   const { data, error } = await loadProfile(db, userId);
   if (error) return void res.status(500).json({ detail: error.message });
-  const apiKeyStatus = await getUserApiKeyStatus(userId, db);
-  res.json({ ...data, apiKeyStatus });
-});
-
-// GET /user/api-keys
-userRouter.get("/api-keys", requireAuth, async (_req, res) => {
-  const userId = res.locals.userId as string;
-  const db = createServerSupabase();
-  const status = await getUserApiKeyStatus(userId, db);
-  res.json(status);
-});
-
-// PUT /user/api-keys/:provider
-userRouter.put("/api-keys/:provider", requireAuth, async (req, res) => {
-  const userId = res.locals.userId as string;
-  const provider = normalizeApiKeyProvider(req.params.provider);
-  if (!provider)
-    return void res.status(400).json({ detail: "Unsupported provider" });
-
-  const apiKey =
-    typeof req.body?.api_key === "string" ? req.body.api_key : null;
-  const db = createServerSupabase();
-  try {
-    if (hasEnvApiKey(provider)) {
-      return void res.status(409).json({
-        detail:
-          "This provider is configured by the server environment and cannot be changed from the browser.",
-      });
-    }
-    await saveUserApiKey(userId, provider, apiKey, db);
-    const status = await getUserApiKeyStatus(userId, db);
-    res.json(status);
-  } catch (err) {
-    console.error("[user/api-keys] save failed", {
-      provider,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    res.status(500).json({ detail: "Failed to save API key" });
-  }
+  res.json(data);
 });
 
 // DELETE /user/account
