@@ -126,7 +126,7 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Verified backend + frontend builds clean.
 - Revert: `git revert <this commit>`
 
-### Batch 10 — Dev bypass (commit: <pending>)
+### Batch 10 — Dev bypass (commit: 85348e4)
 
 - Goal: NODE_ENV-gated auth + paywall bypass for local previews. Lets the
   team open authenticated pages without real Supabase / Stripe creds.
@@ -149,7 +149,7 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Tests: 3 new backend (`devAuth.test.ts`) + 6 new frontend (`devAuth.test.ts`). All existing tests still pass when the flag is unset.
 - Build: PASS (backend `tsc`, frontend `next build`) with both flags unset and set to `1`.
 - Hard production safety: `isDevAuthBypass` is a const evaluated as `process.env.NODE_ENV !== 'production' && process.env.{FLAG} === '1'`. Production deployments ignore the flag by NODE_ENV check — the gate cannot be defeated without code changes.
-- Revert command: `git revert <commit-sha>`
+- Revert command: `git revert 85348e4`
 
 ## Spec docs produced (not part of any single feature batch)
 
