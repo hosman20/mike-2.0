@@ -7,6 +7,7 @@ import { ChatHistoryProvider } from "@/app/contexts/ChatHistoryContext";
 import { SidebarContext } from "@/app/contexts/SidebarContext";
 import { IconRail } from "@/components/chrome/icon-rail";
 import { SecondaryNav } from "@/components/chrome/secondary-nav";
+import { TrialBanner } from "@/components/chrome/trial-banner";
 
 // Mike 2.1 authenticated shell.
 //
@@ -54,6 +55,7 @@ export default function MikeLayout({
                     <IconRail />
                     <SecondaryNav />
                     <main className="flex-1 min-w-0 h-dvh overflow-y-auto bg-bg-canvas flex flex-col">
+                        <TrialBanner />
                         <div className="flex-1 min-h-0">{children}</div>
                     </main>
                 </div>

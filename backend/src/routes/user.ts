@@ -16,7 +16,49 @@ type UserProfileRow = {
   tabular_model: string;
 };
 
-function serializeProfile(row: UserProfileRow) {
+type SubscriptionRow = {
+  tier: "trial" | "starter" | "professional" | "enterprise";
+  status:
+    | "trialing"
+    | "active"
+    | "past_due"
+    | "canceled"
+    | "unpaid"
+    | "incomplete"
+    | "incomplete_expired";
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  tokens_used_this_period: number;
+  monthly_token_limit: number;
+};
+
+type SerializedSubscription = {
+  tier: SubscriptionRow["tier"];
+  status: SubscriptionRow["status"];
+  trial_ends_at: string | null;
+  current_period_end: string | null;
+  tokens_used_this_period: number;
+  monthly_token_limit: number;
+};
+
+function serializeSubscription(
+  row: SubscriptionRow | null,
+): SerializedSubscription | null {
+  if (!row) return null;
+  return {
+    tier: row.tier,
+    status: row.status,
+    trial_ends_at: row.trial_ends_at,
+    current_period_end: row.current_period_end,
+    tokens_used_this_period: row.tokens_used_this_period ?? 0,
+    monthly_token_limit: row.monthly_token_limit ?? 0,
+  };
+}
+
+function serializeProfile(
+  row: UserProfileRow,
+  subscription: SubscriptionRow | null = null,
+) {
   const creditsUsed = row.message_credits_used ?? 0;
   return {
     displayName: row.display_name,
@@ -26,7 +68,22 @@ function serializeProfile(row: UserProfileRow) {
     creditsRemaining: Math.max(MONTHLY_CREDIT_LIMIT - creditsUsed, 0),
     tier: row.tier || "Free",
     tabularModel: resolveModel(row.tabular_model, DEFAULT_TABULAR_MODEL),
+    subscription: serializeSubscription(subscription),
   };
+}
+
+async function loadSubscription(
+  db: ReturnType<typeof createServerSupabase>,
+  userId: string,
+): Promise<SubscriptionRow | null> {
+  const { data } = await db
+    .from("subscriptions")
+    .select(
+      "tier, status, trial_ends_at, current_period_end, tokens_used_this_period, monthly_token_limit",
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data as SubscriptionRow | null) ?? null;
 }
 
 function validateProfilePayload(body: unknown):
@@ -157,7 +214,8 @@ async function loadProfile(
     row = resetData as UserProfileRow;
   }
 
-  return { data: serializeProfile(row), error: null };
+  const subscription = await loadSubscription(db, userId);
+  return { data: serializeProfile(row, subscription), error: null };
 }
 
 // POST /user/profile

@@ -117,6 +117,30 @@ export async function deleteAccount(): Promise<void> {
     return apiRequest<void>("/user/account", { method: "DELETE" });
 }
 
+export type SubscriptionTier =
+    | "trial"
+    | "starter"
+    | "professional"
+    | "enterprise";
+
+export type SubscriptionStatus =
+    | "trialing"
+    | "active"
+    | "past_due"
+    | "canceled"
+    | "unpaid"
+    | "incomplete"
+    | "incomplete_expired";
+
+export interface SubscriptionInfo {
+    tier: SubscriptionTier;
+    status: SubscriptionStatus;
+    trial_ends_at: string | null;
+    current_period_end: string | null;
+    tokens_used_this_period: number;
+    monthly_token_limit: number;
+}
+
 export interface UserProfile {
     displayName: string | null;
     organisation: string | null;
@@ -126,6 +150,7 @@ export interface UserProfile {
     tier: string;
     tabularModel: string;
     apiKeyStatus: ApiKeyStatus;
+    subscription: SubscriptionInfo | null;
 }
 
 export async function getUserProfile(): Promise<UserProfile> {

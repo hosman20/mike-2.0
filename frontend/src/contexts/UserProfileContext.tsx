@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
     type ApiKeyState,
     type ApiKeyProvider,
+    type SubscriptionInfo,
     type UserProfile as ApiUserProfile,
     getUserProfile,
     saveApiKey,
@@ -27,6 +28,7 @@ interface UserProfile {
     tier: string;
     tabularModel: string;
     apiKeys: ApiKeyState;
+    subscription: SubscriptionInfo | null;
 }
 
 interface UserProfileContextType {
@@ -61,7 +63,7 @@ function emptyApiKeys(): ApiKeyState {
 }
 
 function toProfile(data: ApiUserProfile): UserProfile {
-    const { apiKeyStatus, ...profile } = data;
+    const { apiKeyStatus, subscription, ...profile } = data;
     const apiKeys = emptyApiKeys();
     for (const provider of API_KEY_PROVIDERS) {
         apiKeys[provider] = {
@@ -75,6 +77,7 @@ function toProfile(data: ApiUserProfile): UserProfile {
     return {
         ...profile,
         apiKeys,
+        subscription: subscription ?? null,
     };
 }
 
@@ -102,6 +105,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 tier: "Free",
                 tabularModel: "gemini-3-flash-preview",
                 apiKeys: emptyApiKeys(),
+                subscription: null,
             });
         } finally {
             setLoading(false);
