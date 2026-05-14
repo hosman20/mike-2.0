@@ -1,13 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Menu } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { isDevAuthBypass } from "@/lib/devAuth";
 import { ChatHistoryProvider } from "@/app/contexts/ChatHistoryContext";
 import { SidebarContext } from "@/app/contexts/SidebarContext";
-import { AppSidebar } from "@/app/components/shared/AppSidebar";
+import { IconRail } from "@/components/chrome/icon-rail";
+import { SecondaryNav } from "@/components/chrome/secondary-nav";
+import { TrialBanner } from "@/components/chrome/trial-banner";
+import { DevBanner } from "@/components/chrome/dev-banner";
 
+// Mike 2.1 authenticated shell.
+//
+// Layout chrome composes two fixed-width columns on desktop:
+//   [ IconRail 64w ][ SecondaryNav 224w ][ Main fills, bg-canvas ]
+//
+// Both nav columns use the bespoke `sidebar` token (white in Mike 2.1)
+// with hairline right borders. The chrome auth guard logic from the
+// previous AppSidebar layout is preserved — unauthenticated users are
+// redirected to /login.
 export default function MikeLayout({
     children,
 }: {
@@ -16,49 +28,11 @@ export default function MikeLayout({
     const { isAuthenticated, authLoading } = useAuth();
     const router = useRouter();
 
-    const [isSidebarOpenDesktop, setIsSidebarOpenDesktop] = useState(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("sidebarOpen");
-            return saved !== null ? saved === "true" : true;
-        }
-        return true;
-    });
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-        if (typeof window !== "undefined" && window.innerWidth < 768) {
-            return false;
-        }
-        return true;
-    });
-
     useEffect(() => {
-        if (typeof window !== "undefined" && window.innerWidth >= 768) {
-            localStorage.setItem("sidebarOpen", isSidebarOpen.toString());
-        }
-    }, [isSidebarOpenDesktop]);
-
-    useEffect(() => {
-        if (typeof window === "undefined") return;
-        const handleResize = () => {
-            const isSmall = window.innerWidth < 768;
-            if (isSmall && isSidebarOpen) setIsSidebarOpen(false);
-            else if (!isSmall && !isSidebarOpen)
-                setIsSidebarOpen(isSidebarOpenDesktop);
-        };
-        window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
-    }, [isSidebarOpen, isSidebarOpenDesktop]);
-
-    const handleSidebarToggle = () => {
-        if (window.innerWidth >= 768) {
-            setIsSidebarOpenDesktop(!isSidebarOpenDesktop);
-            setIsSidebarOpen(!isSidebarOpenDesktop);
-        } else {
-            setIsSidebarOpen(!isSidebarOpen);
-        }
-    };
-
-    useEffect(() => {
+        // Dev-only bypass: skip the auth guard entirely. The guard is GATED,
+        // not removed — when `isDevAuthBypass` is false (always in prod) the
+        // original redirect-to-/login behaviour runs unchanged.
+        if (isDevAuthBypass) return;
         if (!authLoading && !isAuthenticated) {
             router.push("/login");
         }
@@ -67,7 +41,7 @@ export default function MikeLayout({
     if (authLoading) {
         return (
             <div className="flex h-screen items-center justify-center">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-300 border-t-gray-700" />
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
             </div>
         );
     }
@@ -76,30 +50,21 @@ export default function MikeLayout({
 
     return (
         <ChatHistoryProvider>
+            {/* SidebarContext is preserved for downstream consumers that
+                still call setSidebarOpen on legacy modals / pickers. The
+                Mike 2.1 chrome itself does not collapse — the rail and
+                secondary nav are always-on for desktop. */}
             <SidebarContext.Provider
-                value={{ setSidebarOpen: (open) => { setIsSidebarOpen(open); setIsSidebarOpenDesktop(open); } }}
+                value={{ setSidebarOpen: (_open: boolean) => undefined }}
             >
-                <div className="h-dvh bg-white flex flex-col">
-                    <div className="flex-1 flex overflow-hidden">
-                        <AppSidebar
-                            isOpen={isSidebarOpen}
-                            onToggle={handleSidebarToggle}
-                        />
-                        <div className="flex-1 flex flex-col h-dvh md:overflow-hidden relative w-full">
-                            {/* Mobile header */}
-                            <div className="flex md:hidden items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
-                                <button
-                                    onClick={handleSidebarToggle}
-                                    className="flex items-center justify-center w-8 h-8 rounded hover:bg-gray-100 text-gray-500 transition-colors"
-                                >
-                                    <Menu className="h-5 w-5" />
-                                </button>
-                            </div>
-                            <main className="flex-1 overflow-y-auto md:overflow-hidden w-full h-full">
-                                {children}
-                            </main>
-                        </div>
-                    </div>
+                <div className="h-dvh bg-bg-canvas flex">
+                    <IconRail />
+                    <SecondaryNav />
+                    <main className="flex-1 min-w-0 h-dvh overflow-y-auto bg-bg-canvas flex flex-col">
+                        <DevBanner />
+                        <TrialBanner />
+                        <div className="flex-1 min-h-0">{children}</div>
+                    </main>
                 </div>
             </SidebarContext.Provider>
         </ChatHistoryProvider>

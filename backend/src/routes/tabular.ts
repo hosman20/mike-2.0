@@ -11,13 +11,14 @@ import {
     type TabularCellStore,
 } from "../lib/chatTools";
 import { completeText, streamChatWithTools } from "../lib/llm";
-import { getUserApiKeys, getUserModelSettings } from "../lib/userSettings";
+import { getUserModelSettings } from "../lib/userSettings";
 import {
     checkProjectAccess,
     ensureReviewAccess,
     filterAccessibleDocumentIds,
     listAccessibleProjectIds,
 } from "../lib/access";
+import { recordTokenUsage } from "../lib/billing/usage";
 
 function formatPromptSuffix(format?: string, tags?: string[]): string {
     switch (format) {
@@ -276,14 +277,14 @@ tabularRouter.post("/prompt", requireAuth, async (req, res) => {
         `format handling is applied separately and must not be duplicated inside the prompt text.`;
 
     try {
-        const { title_model, api_keys } = await getUserModelSettings(userId);
+        const { title_model } = await getUserModelSettings(userId);
         const raw = await completeText({
             model: title_model,
             systemPrompt:
                 'You write high-quality column prompts for legal tabular review workflows. Return only valid JSON with a single field: {"prompt": string}. The prompt you write must focus solely on what to extract — never on how to format the response.',
             user: userMessage,
             maxTokens: 512,
-            apiKeys: api_keys,
+            attribution: { userId },
         });
         const parsed = JSON.parse(
             raw
@@ -722,10 +723,7 @@ tabularRouter.post(
             }
         }
 
-        const { tabular_model, api_keys } = await getUserModelSettings(
-            userId,
-            db,
-        );
+        const { tabular_model } = await getUserModelSettings(userId, db);
         const result = await queryGemini(
             tabular_model,
             doc.filename as string,
@@ -733,7 +731,7 @@ tabularRouter.post(
             column.prompt,
             column.format,
             column.tags,
-            api_keys,
+            userId,
         );
 
         if (!result) {
@@ -817,7 +815,7 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
         docs = data ?? [];
     }
 
-    const { tabular_model, api_keys } = await getUserModelSettings(userId, db);
+    const { tabular_model } = await getUserModelSettings(userId, db);
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -903,7 +901,7 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
                                 `data: ${JSON.stringify({ type: "cell_update", document_id: docId, column_index: columnIndex, content: result, status: "done" })}\n\n`,
                             );
                         },
-                        api_keys,
+                        userId,
                     );
                 } catch (err) {
                     console.error(
@@ -1266,10 +1264,8 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
         write(`data: ${JSON.stringify({ type: "chat_id", chatId })}\n\n`);
     }
 
-    const apiKeys = await getUserApiKeys(userId, db);
-
     try {
-        const { fullText, events } = await runLLMStream({
+        const { fullText, events, totalTokens } = await runLLMStream({
             apiMessages,
             docStore: new Map(),
             docIndex: {},
@@ -1280,8 +1276,11 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
             tabularStore,
             buildCitations: (text) =>
                 extractTabularAnnotations(text, tabularStore),
-            apiKeys,
         });
+
+        if (typeof totalTokens === "number" && totalTokens > 0) {
+            void recordTokenUsage(userId, totalTokens);
+        }
 
         const annotations = extractTabularAnnotations(fullText, tabularStore);
 
@@ -1308,7 +1307,7 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
                     reviewTitle: clientReviewTitle ?? review.title ?? null,
                     projectName: clientProjectName ?? null,
                 },
-                apiKeys,
+                userId,
             );
             if (title) {
                 await db
@@ -1386,7 +1385,7 @@ async function queryGemini(
     columnPrompt: string,
     format?: string,
     tags?: string[],
-    apiKeys?: import("../lib/llm").UserApiKeys,
+    userId?: string,
 ) {
     const suffix = formatPromptSuffix(format as never, tags);
     const fullPrompt = `${columnPrompt}${suffix} If not found, state "Not Found". Leave all reasoning and explanation in the "reasoning" field only.`;
@@ -1405,7 +1404,7 @@ The "summary" field must contain only the extracted value with inline citations 
             systemPrompt: EXTRACTION_SYSTEM,
             user: `Document: ${filename}\n\n${documentText.slice(0, 120_000)}\n\n---\nInstruction: ${fullPrompt}`,
             maxTokens: 2048,
-            apiKeys,
+            attribution: userId ? { userId } : undefined,
         });
     } catch (err) {
         console.error("[queryGemini] completion failed", err);
@@ -1449,7 +1448,7 @@ async function generateChatTitle(
     model: string,
     firstUserMessage: string,
     context?: { reviewTitle?: string | null; projectName?: string | null },
-    apiKeys?: import("../lib/llm").UserApiKeys,
+    userId?: string,
 ): Promise<string | null> {
     try {
         const contextLines: string[] = [];
@@ -1465,7 +1464,7 @@ async function generateChatTitle(
             model,
             user: `${contextBlock}Generate a short title (4-6 words) for a chat that starts with the message below. The title should reflect the user's specific question, not the review or project name. Return only the title, no punctuation, no quotes:\n\n${firstUserMessage}`,
             maxTokens: 64,
-            apiKeys,
+            attribution: userId ? { userId } : undefined,
         });
         return raw.trim().slice(0, 80) || null;
     } catch {
@@ -1540,7 +1539,7 @@ async function queryGeminiAllColumns(
     documentText: string,
     columns: Column[],
     onResult: (columnIndex: number, result: CellResult) => Promise<void>,
-    apiKeys?: import("../lib/llm").UserApiKeys,
+    userId?: string,
 ): Promise<void> {
     const columnsDesc = columns
         .map((col) => {
@@ -1602,7 +1601,7 @@ Rules:
             systemPrompt: SYSTEM,
             messages: [{ role: "user", content: USER }],
             tools: [],
-            apiKeys,
+            attribution: userId ? { userId } : undefined,
             callbacks: {
                 onContentDelta: (delta) => {
                     contentBuffer += delta;

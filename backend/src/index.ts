@@ -11,10 +11,20 @@ import { tabularRouter } from "./routes/tabular";
 import { workflowsRouter } from "./routes/workflows";
 import { userRouter } from "./routes/user";
 import { downloadsRouter } from "./routes/downloads";
+import { billingRouter } from "./routes/billing";
+import { requireActiveSubscription } from "./middleware/requireActiveSubscription";
+import { requireAuth } from "./middleware/auth";
+import { isDevAuthBypass } from "./lib/devAuth";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 const isProduction = process.env.NODE_ENV === "production";
+
+if (isDevAuthBypass) {
+  console.warn(
+    "⚠️  DEV_AUTH_BYPASS is enabled — JWT verification and paywall are skipped. NEVER deploy with this flag set.",
+  );
+}
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];
@@ -97,6 +107,15 @@ app.use(
 
 app.use(generalLimiter);
 
+// Stripe webhooks require the raw request body to verify the signature.
+// This MUST be mounted BEFORE `express.json()` — once the JSON parser
+// consumes the stream the original bytes are gone. Scoped strictly to the
+// webhook path so every other billing endpoint still gets parsed JSON.
+app.post(
+  "/api/billing/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+);
+
 app.use(express.json({ limit: "50mb" }));
 
 app.post("/chat", chatLimiter);
@@ -109,6 +128,27 @@ app.post("/single-documents", uploadLimiter);
 app.post("/single-documents/:documentId/versions", uploadLimiter);
 app.post("/projects/:projectId/documents", uploadLimiter);
 
+// Paywall — only the actual AI generation endpoints. requireAuth runs
+// twice on these paths (once here to populate res.locals.userId for the
+// paywall check, once inside the router) but is idempotent: the second
+// call sees an already-verified token and short-circuits cheaply.
+app.post("/chat", requireAuth, requireActiveSubscription);
+app.post(
+  "/projects/:projectId/chat",
+  requireAuth,
+  requireActiveSubscription,
+);
+app.post(
+  "/tabular-review/:reviewId/chat",
+  requireAuth,
+  requireActiveSubscription,
+);
+app.post(
+  "/tabular-review/:reviewId/generate",
+  requireAuth,
+  requireActiveSubscription,
+);
+
 app.use("/chat", chatRouter);
 app.use("/projects", projectsRouter);
 app.use("/projects/:projectId/chat", projectChatRouter);
@@ -118,6 +158,7 @@ app.use("/workflows", workflowsRouter);
 app.use("/user", userRouter);
 app.use("/users", userRouter);
 app.use("/download", downloadsRouter);
+app.use("/api/billing", billingRouter);
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 

@@ -9,9 +9,11 @@ import React, {
     useCallback,
 } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { DEV_STUB_PROFILE, isDevAuthBypass } from "@/lib/devAuth";
 import {
     type ApiKeyState,
     type ApiKeyProvider,
+    type SubscriptionInfo,
     type UserProfile as ApiUserProfile,
     getUserProfile,
     saveApiKey,
@@ -27,6 +29,7 @@ interface UserProfile {
     tier: string;
     tabularModel: string;
     apiKeys: ApiKeyState;
+    subscription: SubscriptionInfo | null;
 }
 
 interface UserProfileContextType {
@@ -61,7 +64,7 @@ function emptyApiKeys(): ApiKeyState {
 }
 
 function toProfile(data: ApiUserProfile): UserProfile {
-    const { apiKeyStatus, ...profile } = data;
+    const { apiKeyStatus, subscription, ...profile } = data;
     const apiKeys = emptyApiKeys();
     for (const provider of API_KEY_PROVIDERS) {
         apiKeys[provider] = {
@@ -75,6 +78,7 @@ function toProfile(data: ApiUserProfile): UserProfile {
     return {
         ...profile,
         apiKeys,
+        subscription: subscription ?? null,
     };
 }
 
@@ -84,6 +88,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     const loadProfile = useCallback(async () => {
+        // Dev-only bypass: skip the network call and use the stub profile.
+        if (isDevAuthBypass) {
+            setProfile(toProfile(DEV_STUB_PROFILE));
+            setLoading(false);
+            return;
+        }
         try {
             const profileData = await getUserProfile();
             setProfile(toProfile(profileData));
@@ -102,6 +112,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 tier: "Free",
                 tabularModel: "gemini-3-flash-preview",
                 apiKeys: emptyApiKeys(),
+                subscription: null,
             });
         } finally {
             setLoading(false);

@@ -2722,14 +2722,17 @@ export async function runLLMStream(params: {
     tabularStore?: TabularCellStore;
     buildCitations?: (fullText: string) => unknown[];
     model?: string;
-    apiKeys?: import("./llm").UserApiKeys;
     /**
      * If set, generate_docx will attach created docs to this project so
      * they appear in the project sidebar. Leave null for general chats —
      * generated docs still get persisted, but as standalone documents.
      */
     projectId?: string | null;
-}): Promise<{ fullText: string; events: AssistantEvent[] }> {
+}): Promise<{
+    fullText: string;
+    events: AssistantEvent[];
+    totalTokens?: number;
+}> {
     const {
         apiMessages,
         docStore,
@@ -2742,7 +2745,6 @@ export async function runLLMStream(params: {
         tabularStore,
         buildCitations,
         model,
-        apiKeys,
         projectId,
     } = params;
     const activeTools = extraTools?.length
@@ -2832,13 +2834,13 @@ export async function runLLMStream(params: {
 
     const selectedModel = resolveModel(model, DEFAULT_MAIN_MODEL);
 
-    await streamChatWithTools({
+    const streamResult = await streamChatWithTools({
         model: selectedModel,
         systemPrompt,
         messages: chatMessages,
         tools: activeTools as OpenAIToolSchema[],
         maxIterations: 10,
-        apiKeys,
+        attribution: userId ? { userId } : undefined,
         enableThinking: true,
         callbacks: {
             onContentDelta: (delta) => {
@@ -3002,7 +3004,8 @@ export async function runLLMStream(params: {
     write(`data: ${JSON.stringify({ type: "citations", citations })}\n\n`);
     write("data: [DONE]\n\n");
 
-    return { fullText, events };
+    const totalTokens = streamResult.usage?.totalTokens;
+    return { fullText, events, totalTokens };
 }
 
 // ---------------------------------------------------------------------------

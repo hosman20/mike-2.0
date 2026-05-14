@@ -1,11 +1,27 @@
 import { Request, Response, NextFunction } from "express";
 import { createClient } from "@supabase/supabase-js";
+import {
+  DEV_STUB_USER_EMAIL,
+  DEV_STUB_USER_ID,
+  isDevAuthBypass,
+} from "../lib/devAuth";
 
 export async function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  // Dev-only bypass: skip Supabase JWT verification entirely and inject a
+  // stub identity. Hard-gated by NODE_ENV !== 'production' inside
+  // `isDevAuthBypass` — see `lib/devAuth.ts`.
+  if (isDevAuthBypass) {
+    res.locals.userId = DEV_STUB_USER_ID;
+    res.locals.userEmail = DEV_STUB_USER_EMAIL;
+    res.locals.token = "dev";
+    next();
+    return;
+  }
+
   const auth = req.headers.authorization ?? "";
   if (!auth.startsWith("Bearer ")) {
     res.status(401).json({ detail: "Missing or invalid Authorization header" });

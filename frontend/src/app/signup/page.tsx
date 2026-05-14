@@ -11,6 +11,11 @@ import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { updateUserProfile } from "@/app/lib/mikeApi";
 
+// Mike 2.1 signup page.
+// Mirrors the login layout: 460px card, hairline border, no shadow, ink-pill
+// primary CTA. Organisation is required because Mike 2.0 is a B2B legal-AI
+// product — every account belongs to a firm.
+// Source reference: Pencil node `V3Q1xu` (AUTH · 02 SIGN UP).
 export default function SignupPage() {
     const router = useRouter();
     const { isAuthenticated, authLoading } = useAuth();
@@ -34,14 +39,12 @@ export default function SignupPage() {
         setLoading(true);
         setError(null);
 
-        // Validate passwords match
         if (password !== confirmPassword) {
             setError("Passwords do not match");
             setLoading(false);
             return;
         }
 
-        // Validate password length
         if (password.length < 6) {
             setError("Password must be at least 6 characters");
             setLoading(false);
@@ -77,10 +80,10 @@ export default function SignupPage() {
             setTimeout(() => {
                 router.push("/assistant");
             }, 2000);
-        } catch (error: unknown) {
+        } catch (err: unknown) {
             setError(
-                error instanceof Error
-                    ? error.message
+                err instanceof Error
+                    ? err.message
                     : "An error occurred during signup",
             );
         } finally {
@@ -88,23 +91,22 @@ export default function SignupPage() {
         }
     };
 
-    // Success View
     if (success) {
         return (
-            <div className="min-h-dvh bg-white flex items-start justify-center px-6 pt-32 md:pt-40 pb-10 relative">
+            <div className="min-h-dvh bg-bg-canvas flex items-start justify-center px-6 pt-24 md:pt-32 pb-10 relative">
                 <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2">
-                    <SiteLogo size="md" className="md:text-4xl" asLink />
+                    <SiteLogo size="md" asLink />
                 </div>
-                <div className="w-full max-w-md">
-                    <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center shadow-sm">
-                        <div className="mx-auto w-12 h-12 bg-green-50 rounded-full flex items-center justify-center mb-6">
-                            <CheckCircle2 className="h-6 w-6 text-green-600" />
+                <div className="w-full max-w-[460px]">
+                    <div className="bg-surface border border-border rounded-xl p-10 text-center">
+                        <div className="mx-auto w-12 h-12 bg-green-soft rounded-full flex items-center justify-center mb-6">
+                            <CheckCircle2 className="h-6 w-6 text-green" />
                         </div>
-                        <h2 className="text-2xl font-semibold text-gray-900 mb-3">
-                            Account created!
+                        <h2 className="text-base font-semibold text-foreground mb-2 tracking-tight">
+                            Your firm workspace is ready
                         </h2>
-                        <p className="text-gray-600 leading-relaxed">
-                            Redirecting you to the home page...
+                        <p className="text-xs text-text-muted">
+                            Taking you to your assistant…
                         </p>
                     </div>
                 </div>
@@ -112,61 +114,32 @@ export default function SignupPage() {
         );
     }
 
-    // Default Signup Form View
     return (
-        <div className="min-h-dvh bg-white flex items-start justify-center px-6 pt-32 md:pt-40 pb-10 relative">
+        <div className="min-h-dvh bg-bg-canvas flex items-start justify-center px-6 pt-24 md:pt-32 pb-10 relative">
             <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2">
-                <SiteLogo size="md" className="md:text-4xl" asLink />
+                <SiteLogo size="md" asLink />
             </div>
-            <div className="w-full max-w-md">
-                <div className="bg-white border border-gray-200 rounded-2xl p-8 mb-4">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-left text-2xl font-serif">
-                            Create Account
+            <div className="w-full max-w-[460px]">
+                <div className="bg-surface border border-border rounded-xl p-8">
+                    <div className="flex flex-col gap-1 mb-6">
+                        <h2 className="text-base font-semibold text-foreground tracking-tight">
+                            Create a firm workspace
                         </h2>
-                        <div className="bg-gray-100 p-1 rounded-md flex text-xs font-medium">
-                            <Link
-                                href="/login"
-                                className="px-3 py-1 text-gray-500 hover:text-gray-900"
-                            >
-                                Log in
-                            </Link>
-                            <span className="px-3 py-1 bg-white rounded-sm shadow-sm text-gray-900">
-                                Sign up
-                            </span>
-                        </div>
+                        <p className="text-xs text-text-muted">
+                            Set up Mike for your practice in under a minute
+                        </p>
                     </div>
 
-                    <form onSubmit={handleSignup} className="space-y-4">
-                        <div>
-                            <label
-                                htmlFor="name"
-                                className="block text-sm font-medium text-gray-700 mb-2"
-                            >
-                                Name{" "}
-                                <span className="text-gray-400 font-normal">
-                                    (optional)
-                                </span>
-                            </label>
-                            <Input
-                                id="name"
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Your name"
-                                className="w-full"
-                            />
-                        </div>
-
-                        <div>
+                    <form
+                        onSubmit={handleSignup}
+                        className="flex flex-col gap-3"
+                    >
+                        <div className="flex flex-col gap-1.5">
                             <label
                                 htmlFor="organisation"
-                                className="block text-sm font-medium text-gray-700 mb-2"
+                                className="text-[11px] font-medium text-text-secondary"
                             >
-                                Organisation{" "}
-                                <span className="text-gray-400 font-normal">
-                                    (optional)
-                                </span>
+                                Firm name
                             </label>
                             <Input
                                 id="organisation"
@@ -175,33 +148,54 @@ export default function SignupPage() {
                                 onChange={(e) =>
                                     setOrganisation(e.target.value)
                                 }
-                                placeholder="Your organisation"
-                                className="w-full"
+                                placeholder="e.g. Al Tamimi & Company"
+                                required
+                                autoComplete="organization"
                             />
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-1.5">
+                            <label
+                                htmlFor="name"
+                                className="text-[11px] font-medium text-text-secondary"
+                            >
+                                Your name{" "}
+                                <span className="text-text-dim font-normal">
+                                    (optional)
+                                </span>
+                            </label>
+                            <Input
+                                id="name"
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Sara Haddad"
+                                autoComplete="name"
+                            />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
                             <label
                                 htmlFor="email"
-                                className="block text-sm font-medium text-gray-700 mb-2"
+                                className="text-[11px] font-medium text-text-secondary"
                             >
-                                Email
+                                Work email
                             </label>
                             <Input
                                 id="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Enter your email"
+                                placeholder="you@firm.com"
                                 required
-                                className="w-full"
+                                autoComplete="email"
                             />
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-1.5">
                             <label
                                 htmlFor="password"
-                                className="block text-sm font-medium text-gray-700 mb-2"
+                                className="text-[11px] font-medium text-text-secondary"
                             >
                                 Password
                             </label>
@@ -212,16 +206,16 @@ export default function SignupPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="Create a password (min. 6 characters)"
                                 required
-                                className="w-full"
+                                autoComplete="new-password"
                             />
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-1.5">
                             <label
                                 htmlFor="confirmPassword"
-                                className="block text-sm font-medium text-gray-700 mb-2"
+                                className="text-[11px] font-medium text-text-secondary"
                             >
-                                Confirm Password
+                                Confirm password
                             </label>
                             <Input
                                 id="confirmPassword"
@@ -232,12 +226,15 @@ export default function SignupPage() {
                                 }
                                 placeholder="Confirm your password"
                                 required
-                                className="w-full"
+                                autoComplete="new-password"
                             />
                         </div>
 
                         {error && (
-                            <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
+                            <div
+                                role="alert"
+                                className="text-xs text-rose bg-rose-soft border border-rose/20 px-3 py-2 rounded-sm"
+                            >
                                 {error}
                             </div>
                         )}
@@ -245,39 +242,43 @@ export default function SignupPage() {
                         <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-black hover:bg-gray-900 text-white"
+                            className="w-full mt-2"
                         >
-                            {loading ? "Creating account..." : "Sign up"}
+                            {loading ? "Creating workspace…" : "Start free trial"}
                         </Button>
                     </form>
 
-                    {/* Terms and Privacy */}
-                    <div className="mt-4 text-center text-xs text-gray-500">
-                        By signing up, you agree to our{" "}
+                    <p className="mt-4 text-center text-[11px] text-text-muted">
+                        14-day free trial · no card required
+                    </p>
+
+                    <p className="mt-3 text-center text-[11px] text-text-muted leading-relaxed">
+                        By creating an account you agree to our{" "}
                         <Link
-                            href="https://mikeoss.com/terms"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            href="/terms"
+                            className="text-foreground font-medium hover:underline underline-offset-2"
                         >
-                            Terms of Use
+                            Terms
                         </Link>{" "}
                         and{" "}
                         <Link
-                            href="https://mikeoss.com/privacy"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline"
+                            href="/privacy"
+                            className="text-foreground font-medium hover:underline underline-offset-2"
                         >
                             Privacy Policy
                         </Link>
-                    </div>
+                        .
+                    </p>
                 </div>
-                <p className="text-center text-xs text-gray-500 leading-relaxed px-2">
-                    Mike hosted on MikeOSS.com is currently a demo service.
-                    Please do not upload, submit, or store sensitive,
-                    confidential, privileged, client, or personally identifiable
-                    documents.
+
+                <p className="mt-4 text-center text-xs text-text-muted">
+                    Already have an account?{" "}
+                    <Link
+                        href="/login"
+                        className="font-medium text-foreground hover:underline underline-offset-2"
+                    >
+                        Sign in
+                    </Link>
                 </p>
             </div>
         </div>

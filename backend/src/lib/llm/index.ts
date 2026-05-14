@@ -1,19 +1,23 @@
-import { streamClaude, completeClaudeText } from "./claude";
-import { streamGemini, completeGeminiText } from "./gemini";
-import { streamOpenAI, completeOpenAIText } from "./openai";
-import { providerForModel } from "./models";
-import type { StreamChatParams, StreamChatResult, UserApiKeys } from "./types";
+// Single entry point for all LLM traffic. Every call is routed through the
+// Vercel AI Gateway adapter in `./gateway.ts`. The per-provider files
+// (claude.ts, gemini.ts, openai.ts) are retained as deprecated stubs so
+// historical imports keep compiling, but they delegate here.
+
+import { streamChat, completeChatText } from "./gateway";
+import type {
+    StreamChatAttribution,
+    StreamChatParams,
+    StreamChatResult,
+} from "./types";
 
 export * from "./types";
 export * from "./models";
+export { streamChat, completeChatText } from "./gateway";
 
 export async function streamChatWithTools(
     params: StreamChatParams,
 ): Promise<StreamChatResult> {
-    const provider = providerForModel(params.model);
-    if (provider === "claude") return streamClaude(params);
-    if (provider === "openai") return streamOpenAI(params);
-    return streamGemini(params);
+    return streamChat(params);
 }
 
 export async function completeText(params: {
@@ -21,10 +25,15 @@ export async function completeText(params: {
     systemPrompt?: string;
     user: string;
     maxTokens?: number;
-    apiKeys?: UserApiKeys;
+    attribution?: StreamChatAttribution;
+    // Legacy field accepted but ignored — see UserApiKeys in ./types.ts.
+    apiKeys?: unknown;
 }): Promise<string> {
-    const provider = providerForModel(params.model);
-    if (provider === "claude") return completeClaudeText(params);
-    if (provider === "openai") return completeOpenAIText(params);
-    return completeGeminiText(params);
+    return completeChatText({
+        model: params.model,
+        systemPrompt: params.systemPrompt,
+        user: params.user,
+        maxTokens: params.maxTokens,
+        attribution: params.attribution,
+    });
 }

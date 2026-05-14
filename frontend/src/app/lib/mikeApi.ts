@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { isDevAuthBypass } from "@/lib/devAuth";
 import type {
     AssistantEvent,
     MikeChat,
@@ -59,6 +60,40 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     });
 
     if (!response.ok) {
+        // Payment Required — the paywall middleware rejected the request.
+        // Send the user to /pricing so they can start a trial / upgrade.
+        // We only redirect in a browser context; SSR callers see a plain
+        // error and can decide their own behaviour.
+        if (response.status === 402 && typeof window !== "undefined") {
+            let reason: string | undefined;
+            try {
+                const data = (await response.clone().json()) as {
+                    reason?: string;
+                };
+                reason = data?.reason;
+            } catch {
+                /* non-JSON body — ignore */
+            }
+            // Dev-only bypass: don't redirect to /pricing on 402. With the
+            // backend bypass enabled the paywall never fires, but if the
+            // dev is testing against a real backend or it just happens to
+            // be unreachable, the auto-redirect would yank them off the
+            // page they're trying to preview.
+            if (isDevAuthBypass) {
+                // eslint-disable-next-line no-console
+                console.warn(
+                    `[devAuth] 402 response (${reason ?? "no reason"}) — not redirecting (dev bypass on)`,
+                );
+                throw new Error(
+                    `payment_required${reason ? `:${reason}` : ""}`,
+                );
+            }
+            const target = `/pricing${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`;
+            if (window.location.pathname !== "/pricing") {
+                window.location.href = target;
+            }
+            throw new Error(`payment_required${reason ? `:${reason}` : ""}`);
+        }
         const detail = await response.text();
         throw new Error(detail || `API error: ${response.status}`);
     }
@@ -97,6 +132,30 @@ export async function deleteAccount(): Promise<void> {
     return apiRequest<void>("/user/account", { method: "DELETE" });
 }
 
+export type SubscriptionTier =
+    | "trial"
+    | "starter"
+    | "professional"
+    | "enterprise";
+
+export type SubscriptionStatus =
+    | "trialing"
+    | "active"
+    | "past_due"
+    | "canceled"
+    | "unpaid"
+    | "incomplete"
+    | "incomplete_expired";
+
+export interface SubscriptionInfo {
+    tier: SubscriptionTier;
+    status: SubscriptionStatus;
+    trial_ends_at: string | null;
+    current_period_end: string | null;
+    tokens_used_this_period: number;
+    monthly_token_limit: number;
+}
+
 export interface UserProfile {
     displayName: string | null;
     organisation: string | null;
@@ -106,6 +165,7 @@ export interface UserProfile {
     tier: string;
     tabularModel: string;
     apiKeyStatus: ApiKeyStatus;
+    subscription: SubscriptionInfo | null;
 }
 
 export async function getUserProfile(): Promise<UserProfile> {
@@ -137,10 +197,6 @@ export type ApiKeyState = Record<
 export type ApiKeyStatus = Record<ApiKeyProvider, boolean> & {
     sources?: Partial<Record<ApiKeyProvider, ApiKeySource>>;
 };
-
-export async function getApiKeyStatus(): Promise<ApiKeyStatus> {
-    return apiRequest<ApiKeyStatus>("/user/api-keys");
-}
 
 export async function saveApiKey(
     provider: ApiKeyProvider,

@@ -8,6 +8,12 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { SiteLogo } from "@/components/site-logo";
 import { useAuth } from "@/contexts/AuthContext";
+
+// Mike 2.1 login page.
+// Visual language: warm-paper canvas (`bg-bg-canvas`), centered 460px card with
+// hairline `border-border` (no shadow), 12-px label / 14-px input copy, primary
+// CTA renders as the signature ink-pill via Button's `default` variant.
+// Source reference: Pencil node `gtQ5F` (AUTH · 01 SIGN IN).
 export default function LoginPage() {
     const router = useRouter();
     const { isAuthenticated, authLoading } = useAuth();
@@ -28,7 +34,7 @@ export default function LoginPage() {
         setError(null);
 
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
+            const { error } = await supabase.auth.signInWithPassword({
                 email,
                 password,
             });
@@ -36,60 +42,59 @@ export default function LoginPage() {
             if (error) throw error;
 
             router.push("/assistant");
-        } catch (error: any) {
-            setError(error.message || "An error occurred during login");
+        } catch (err: unknown) {
+            setError(
+                err instanceof Error
+                    ? err.message
+                    : "An error occurred during login",
+            );
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-dvh bg-white flex items-start justify-center px-6 pt-32 md:pt-40 pb-10 relative">
+        <div className="min-h-dvh bg-bg-canvas flex items-start justify-center px-6 pt-24 md:pt-32 pb-10 relative">
             <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2">
-                <SiteLogo size="md" className="md:text-4xl" asLink />
+                <SiteLogo size="md" asLink />
             </div>
-            <div className="w-full max-w-md">
-                {/* Login Form */}
-                <div className="bg-white border border-gray-200 rounded-2xl p-8 mb-4">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-left text-2xl font-serif">
-                            Log In
+            <div className="w-full max-w-[460px]">
+                <div className="bg-surface border border-border rounded-xl p-8">
+                    <div className="flex flex-col gap-1 mb-6">
+                        <h2 className="text-base font-semibold text-foreground tracking-tight">
+                            Sign in to your firm
                         </h2>
-                        <div className="bg-gray-100 p-1 rounded-md flex text-xs font-medium">
-                            <span className="text-gray-600 px-3 py-1 bg-white rounded-sm shadow-sm">
-                                Log in
-                            </span>
-                            <Link
-                                href="/signup"
-                                className="px-3 py-1 text-gray-500 hover:text-gray-900"
-                            >
-                                Sign up
-                            </Link>
-                        </div>
+                        <p className="text-xs text-text-muted">
+                            Use your firm credentials to continue
+                        </p>
                     </div>
-                    <form onSubmit={handleLogin} className="space-y-4">
-                        <div>
+
+                    <form
+                        onSubmit={handleLogin}
+                        className="flex flex-col gap-3"
+                    >
+                        <div className="flex flex-col gap-1.5">
                             <label
                                 htmlFor="email"
-                                className="block text-sm font-medium text-gray-700 mb-2"
+                                className="text-[11px] font-medium text-text-secondary"
                             >
-                                Email
+                                Work email
                             </label>
                             <Input
                                 id="email"
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                placeholder="Enter your email"
+                                placeholder="you@firm.com"
                                 required
-                                className="w-full"
+                                autoComplete="email"
                             />
                         </div>
 
-                        <div>
+                        <div className="flex flex-col gap-1.5">
                             <label
                                 htmlFor="password"
-                                className="block text-sm font-medium text-gray-700 mb-2"
+                                className="text-[11px] font-medium text-text-secondary"
                             >
                                 Password
                             </label>
@@ -100,12 +105,15 @@ export default function LoginPage() {
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="Enter your password"
                                 required
-                                className="w-full"
+                                autoComplete="current-password"
                             />
                         </div>
 
                         {error && (
-                            <div className="text-red-600 text-sm bg-red-50 p-3 rounded">
+                            <div
+                                role="alert"
+                                className="text-xs text-rose bg-rose-soft border border-rose/20 px-3 py-2 rounded-sm"
+                            >
                                 {error}
                             </div>
                         )}
@@ -113,17 +121,25 @@ export default function LoginPage() {
                         <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full mt-5 bg-black hover:bg-gray-900 text-white"
+                            className="w-full mt-2"
                         >
-                            {loading ? "Logging in..." : "Log in"}
+                            {loading ? "Signing in…" : "Sign in"}
                         </Button>
                     </form>
+
+                    <p className="mt-4 text-center text-[11px] text-text-muted">
+                        14-day free trial · no card required
+                    </p>
                 </div>
-                <p className="text-center text-xs text-gray-500 leading-relaxed px-2">
-                    Mike hosted on MikeOSS.com is currently a demo service.
-                    Please do not upload, submit, or store sensitive,
-                    confidential, privileged, client, or personally
-                    identifiable documents.
+
+                <p className="mt-4 text-center text-xs text-text-muted">
+                    Don&apos;t have an account?{" "}
+                    <Link
+                        href="/signup"
+                        className="font-medium text-foreground hover:underline underline-offset-2"
+                    >
+                        Sign up
+                    </Link>
                 </p>
             </div>
         </div>
