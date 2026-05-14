@@ -139,9 +139,11 @@ function PlanCardView({ plan }: { plan: PlanCard }) {
     };
 
     const isEnterprise = plan.id === "enterprise";
-    const cardClass = plan.featured
-        ? "relative border-2 border-border-active rounded-md p-6 bg-white"
-        : "relative border border-border rounded-md p-6 bg-white";
+    // All three pricing cards use the universal hairline `border-border`
+    // (1px, `#E5E7EB`) — same as the auth cards and the billing settings
+    // card. The "Most popular" card is differentiated solely by the
+    // floating badge, not a thicker border.
+    const cardClass = "relative border border-border rounded-md p-6 bg-white";
 
     return (
         <div className={cardClass}>
@@ -292,7 +294,7 @@ export default function PricingPage() {
         <Suspense
             fallback={
                 <div className="min-h-dvh bg-bg-canvas flex items-center justify-center">
-                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-foreground" />
+                    <div className="h-6 w-6 animate-spin rounded-full border border-border border-t-foreground" />
                 </div>
             }
         >

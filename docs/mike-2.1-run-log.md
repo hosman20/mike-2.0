@@ -151,6 +151,29 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Hard production safety: `isDevAuthBypass` is a const evaluated as `process.env.NODE_ENV !== 'production' && process.env.{FLAG} === '1'`. Production deployments ignore the flag by NODE_ENV check — the gate cannot be defeated without code changes.
 - Revert command: `git revert 85348e4`
 
+### Batch 11 — UI polish (playbooks, borders, not-found) (commit: cc285cd)
+
+- Goal: three small, unrelated fixes batched into a single revertable commit.
+  1. Stub the `/playbooks` route so the IconRail nav entry no longer 404s.
+  2. Normalize pricing-page card borders to the universal hairline
+     (`border border-border`) — the Professional card was using
+     `border-2 border-border-active`, visibly heavier than the auth/billing
+     cards. "Most popular" is now communicated only by the floating badge.
+  3. Migrate `not-found.tsx` off legacy tokens (`font-eb-garamond`,
+     `text-gray-500`, raw `bg-gray-900` anchor) to Mike 2.1 tokens + the
+     `Button asChild` + `<Link>` pattern used by login/signup.
+- Files added:
+  - `frontend/src/app/(pages)/playbooks/page.tsx`
+  - `frontend/src/app/(pages)/playbooks/__tests__/playbooks.test.tsx`
+- Files modified:
+  - `frontend/src/app/pricing/page.tsx` (drop `border-2 border-border-active`; also de-emphasize the Suspense fallback spinner ring from `border-2` to `border` for consistency)
+  - `frontend/src/app/not-found.tsx`
+- Tests: 2 new (`playbooks.test.tsx`) — heading + Create-playbook CTA. All 7 suites / 20 tests pass.
+- Build: PASS (`next build`); `/playbooks` listed in the static route table.
+- Verify: `grep -n "border-2\|border-black" frontend/src/app/pricing/page.tsx` returns empty.
+- Note: this resolves follow-up #6 from the parked deploy-checklist list (Phase 2 will replace the stub with the real playbook system).
+- Revert command: `git revert cc285cd`
+
 ## Spec docs produced (not part of any single feature batch)
 
 Both shipped in commit `3da5dd9` (`docs(mike-2.1): add design tokens and frontend inventory specs`):
