@@ -59,6 +59,26 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     });
 
     if (!response.ok) {
+        // Payment Required — the paywall middleware rejected the request.
+        // Send the user to /pricing so they can start a trial / upgrade.
+        // We only redirect in a browser context; SSR callers see a plain
+        // error and can decide their own behaviour.
+        if (response.status === 402 && typeof window !== "undefined") {
+            let reason: string | undefined;
+            try {
+                const data = (await response.clone().json()) as {
+                    reason?: string;
+                };
+                reason = data?.reason;
+            } catch {
+                /* non-JSON body — ignore */
+            }
+            const target = `/pricing${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`;
+            if (window.location.pathname !== "/pricing") {
+                window.location.href = target;
+            }
+            throw new Error(`payment_required${reason ? `:${reason}` : ""}`);
+        }
         const detail = await response.text();
         throw new Error(detail || `API error: ${response.status}`);
     }

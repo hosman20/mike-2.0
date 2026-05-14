@@ -18,6 +18,7 @@ import {
     filterAccessibleDocumentIds,
     listAccessibleProjectIds,
 } from "../lib/access";
+import { recordTokenUsage } from "../lib/billing/usage";
 
 function formatPromptSuffix(format?: string, tags?: string[]): string {
     switch (format) {
@@ -1264,7 +1265,7 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
     }
 
     try {
-        const { fullText, events } = await runLLMStream({
+        const { fullText, events, totalTokens } = await runLLMStream({
             apiMessages,
             docStore: new Map(),
             docIndex: {},
@@ -1276,6 +1277,10 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
             buildCitations: (text) =>
                 extractTabularAnnotations(text, tabularStore),
         });
+
+        if (typeof totalTokens === "number" && totalTokens > 0) {
+            void recordTokenUsage(userId, totalTokens);
+        }
 
         const annotations = extractTabularAnnotations(fullText, tabularStore);
 

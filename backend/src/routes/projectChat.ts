@@ -12,6 +12,7 @@ import {
     type ChatMessage,
 } from "../lib/chatTools";
 import { checkProjectAccess } from "../lib/access";
+import { recordTokenUsage } from "../lib/billing/usage";
 
 const PROJECT_SYSTEM_PROMPT_EXTRA = `PROJECT CONTEXT:
 You are operating within a project folder that contains a collection of legal documents the user has organised for a single matter. The user's questions will usually refer to one or more documents in this project — your job is to find the relevant files to work on. Use list_documents to see what is available and fetch_documents / read_document to pull in any documents you need before answering.
@@ -154,7 +155,7 @@ projectChatRouter.post("/", requireAuth, async (req, res) => {
     try {
         write(`data: ${JSON.stringify({ type: "chat_id", chatId })}\n\n`);
 
-        const { fullText, events } = await runLLMStream({
+        const { fullText, events, totalTokens } = await runLLMStream({
             apiMessages,
             docStore,
             docIndex,
@@ -166,6 +167,10 @@ projectChatRouter.post("/", requireAuth, async (req, res) => {
             model,
             projectId,
         });
+
+        if (typeof totalTokens === "number" && totalTokens > 0) {
+            void recordTokenUsage(userId, totalTokens);
+        }
 
         const annotations = extractAnnotations(fullText, docIndex, events);
         await db.from("chat_messages").insert({

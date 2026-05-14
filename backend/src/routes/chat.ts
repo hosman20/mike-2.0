@@ -13,6 +13,7 @@ import {
 import { completeText } from "../lib/llm";
 import { getUserModelSettings } from "../lib/userSettings";
 import { checkProjectAccess } from "../lib/access";
+import { recordTokenUsage } from "../lib/billing/usage";
 
 export const chatRouter = Router();
 
@@ -548,7 +549,7 @@ chatRouter.post("/", requireAuth, async (req, res) => {
     try {
         write(`data: ${JSON.stringify({ type: "chat_id", chatId })}\n\n`);
 
-        const { fullText, events } = await runLLMStream({
+        const { fullText, events, totalTokens } = await runLLMStream({
             apiMessages,
             docStore,
             docIndex,
@@ -559,6 +560,11 @@ chatRouter.post("/", requireAuth, async (req, res) => {
             model,
             projectId: resolvedProjectId,
         });
+
+        // Bookkeeping — never blocks the stream and never throws.
+        if (typeof totalTokens === "number" && totalTokens > 0) {
+            void recordTokenUsage(userId, totalTokens);
+        }
 
         devLog("[chat/stream] LLM stream finished", {
             fullTextLen: fullText?.length ?? 0,
