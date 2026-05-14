@@ -8,6 +8,7 @@
 
 import type { NextFunction, Request, Response } from "express";
 import { createServerSupabase } from "../lib/supabase";
+import { isDevAuthBypass } from "../lib/devAuth";
 
 export type PaywallReason =
     | "no_subscription"
@@ -68,6 +69,13 @@ export function createRequireActiveSubscription(
         res: Response,
         next: NextFunction,
     ): Promise<void> {
+        // Dev-only bypass: skip the subscription lookup entirely. Hard-gated
+        // by NODE_ENV !== 'production' inside `isDevAuthBypass`.
+        if (isDevAuthBypass) {
+            next();
+            return;
+        }
+
         const userId = res.locals.userId as string | undefined;
         if (!userId) {
             // `requireAuth` must run first — guard against accidental

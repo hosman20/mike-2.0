@@ -126,6 +126,31 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Verified backend + frontend builds clean.
 - Revert: `git revert <this commit>`
 
+### Batch 10 — Dev bypass (commit: <pending>)
+
+- Goal: NODE_ENV-gated auth + paywall bypass for local previews. Lets the
+  team open authenticated pages without real Supabase / Stripe creds.
+- Flags introduced:
+  - `NEXT_PUBLIC_DEV_AUTH_BYPASS` (frontend) — only honored when `NODE_ENV !== 'production'` AND value is exactly `"1"`.
+  - `DEV_AUTH_BYPASS` (backend) — same contract.
+- Frontend bypass behaviour:
+  - `AuthProvider` returns a stub user (UUID `00000000-0000-0000-0000-000000000dev`) + `isAuthenticated: true` without touching Supabase.
+  - `UserProfileProvider` injects a Professional-tier active subscription stub (35M tokens / 0 used / 30-day period end) instead of hitting `/user/profile`.
+  - `(pages)/layout.tsx` skips the `/login` redirect.
+  - `mikeApi.ts` 402 interceptor logs + rethrows instead of redirecting to `/pricing`.
+  - Amber `DevBanner` strip rendered above `TrialBanner`.
+- Backend bypass behaviour:
+  - `requireAuth` populates `res.locals.userId` with the stub UUID and short-circuits before JWT verification.
+  - `requireActiveSubscription` returns `next()` immediately, skipping the `subscriptions` table lookup.
+  - `src/index.ts` emits a visible `console.warn` at boot when the flag is on.
+- Files touched:
+  - Added: `backend/src/lib/devAuth.ts`, `backend/src/middleware/__tests__/devAuth.test.ts`, `frontend/src/lib/devAuth.ts`, `frontend/src/lib/__tests__/devAuth.test.ts`, `frontend/src/components/chrome/dev-banner.tsx`
+  - Modified: `backend/.env.example`, `backend/src/index.ts`, `backend/src/middleware/auth.ts`, `backend/src/middleware/requireActiveSubscription.ts`, `frontend/.env.local.example`, `frontend/src/app/(pages)/layout.tsx`, `frontend/src/app/lib/mikeApi.ts`, `frontend/src/contexts/AuthContext.tsx`, `frontend/src/contexts/UserProfileContext.tsx`
+- Tests: 3 new backend (`devAuth.test.ts`) + 6 new frontend (`devAuth.test.ts`). All existing tests still pass when the flag is unset.
+- Build: PASS (backend `tsc`, frontend `next build`) with both flags unset and set to `1`.
+- Hard production safety: `isDevAuthBypass` is a const evaluated as `process.env.NODE_ENV !== 'production' && process.env.{FLAG} === '1'`. Production deployments ignore the flag by NODE_ENV check — the gate cannot be defeated without code changes.
+- Revert command: `git revert <commit-sha>`
+
 ## Spec docs produced (not part of any single feature batch)
 
 Both shipped in commit `3da5dd9` (`docs(mike-2.1): add design tokens and frontend inventory specs`):

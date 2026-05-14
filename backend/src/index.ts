@@ -14,10 +14,17 @@ import { downloadsRouter } from "./routes/downloads";
 import { billingRouter } from "./routes/billing";
 import { requireActiveSubscription } from "./middleware/requireActiveSubscription";
 import { requireAuth } from "./middleware/auth";
+import { isDevAuthBypass } from "./lib/devAuth";
 
 const app = express();
 const PORT = process.env.PORT ?? 3001;
 const isProduction = process.env.NODE_ENV === "production";
+
+if (isDevAuthBypass) {
+  console.warn(
+    "⚠️  DEV_AUTH_BYPASS is enabled — JWT verification and paywall are skipped. NEVER deploy with this flag set.",
+  );
+}
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name];

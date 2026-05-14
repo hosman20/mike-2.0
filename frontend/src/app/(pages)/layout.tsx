@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { isDevAuthBypass } from "@/lib/devAuth";
 import { ChatHistoryProvider } from "@/app/contexts/ChatHistoryContext";
 import { SidebarContext } from "@/app/contexts/SidebarContext";
 import { IconRail } from "@/components/chrome/icon-rail";
 import { SecondaryNav } from "@/components/chrome/secondary-nav";
 import { TrialBanner } from "@/components/chrome/trial-banner";
+import { DevBanner } from "@/components/chrome/dev-banner";
 
 // Mike 2.1 authenticated shell.
 //
@@ -27,6 +29,10 @@ export default function MikeLayout({
     const router = useRouter();
 
     useEffect(() => {
+        // Dev-only bypass: skip the auth guard entirely. The guard is GATED,
+        // not removed — when `isDevAuthBypass` is false (always in prod) the
+        // original redirect-to-/login behaviour runs unchanged.
+        if (isDevAuthBypass) return;
         if (!authLoading && !isAuthenticated) {
             router.push("/login");
         }
@@ -55,6 +61,7 @@ export default function MikeLayout({
                     <IconRail />
                     <SecondaryNav />
                     <main className="flex-1 min-w-0 h-dvh overflow-y-auto bg-bg-canvas flex flex-col">
+                        <DevBanner />
                         <TrialBanner />
                         <div className="flex-1 min-h-0">{children}</div>
                     </main>

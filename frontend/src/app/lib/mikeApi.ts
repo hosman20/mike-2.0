@@ -4,6 +4,7 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import { isDevAuthBypass } from "@/lib/devAuth";
 import type {
     AssistantEvent,
     MikeChat,
@@ -72,6 +73,20 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
                 reason = data?.reason;
             } catch {
                 /* non-JSON body — ignore */
+            }
+            // Dev-only bypass: don't redirect to /pricing on 402. With the
+            // backend bypass enabled the paywall never fires, but if the
+            // dev is testing against a real backend or it just happens to
+            // be unreachable, the auto-redirect would yank them off the
+            // page they're trying to preview.
+            if (isDevAuthBypass) {
+                // eslint-disable-next-line no-console
+                console.warn(
+                    `[devAuth] 402 response (${reason ?? "no reason"}) — not redirecting (dev bypass on)`,
+                );
+                throw new Error(
+                    `payment_required${reason ? `:${reason}` : ""}`,
+                );
             }
             const target = `/pricing${reason ? `?reason=${encodeURIComponent(reason)}` : ""}`;
             if (window.location.pathname !== "/pricing") {

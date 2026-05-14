@@ -9,6 +9,7 @@ import React, {
     useCallback,
 } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { DEV_STUB_PROFILE, isDevAuthBypass } from "@/lib/devAuth";
 import {
     type ApiKeyState,
     type ApiKeyProvider,
@@ -87,6 +88,12 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     const loadProfile = useCallback(async () => {
+        // Dev-only bypass: skip the network call and use the stub profile.
+        if (isDevAuthBypass) {
+            setProfile(toProfile(DEV_STUB_PROFILE));
+            setLoading(false);
+            return;
+        }
         try {
             const profileData = await getUserProfile();
             setProfile(toProfile(profileData));
