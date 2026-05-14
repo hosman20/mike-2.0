@@ -14,10 +14,9 @@ export function SiteLogo({
     animate = false,
     asLink = false,
 }: SiteLogoProps) {
-    const landingHref =
-        process.env.NODE_ENV === "production"
-            ? "https://mikeoss.com"
-            : "http://localhost:3000";
+    // Mike 2.1: keep users on our own domain rather than bouncing
+    // out to the legacy mikeoss.com landing page.
+    const landingHref = "/";
     const sizeClasses = {
         sm: "text-xl",
         md: "text-2xl",
