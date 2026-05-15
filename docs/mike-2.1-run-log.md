@@ -174,6 +174,17 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Note: this resolves follow-up #6 from the parked deploy-checklist list (Phase 2 will replace the stub with the real playbook system).
 - Revert command: `git revert cc285cd`
 
+### Batch C — Enterprise CTA placeholder marker (commit: TBD)
+
+- Goal: Phase 1 cleanup — parked follow-up #4. The Enterprise tier on `/pricing` links to `mailto:sales@mike.ai`, which (a) targets an unprovisioned mailbox and (b) renders as a no-op on browsers without a configured mail client. A full inline sales-contact dialog (option 1 in the batch brief) would have exceeded the ~50 LOC ceiling once the modal scaffold + a11y + copy-to-clipboard + 2 tests were in, so we fall back to option 2: keep the `mailto:` for now, mark it explicitly in code, and tighten the deploy-checklist gate.
+- Files modified:
+  - `frontend/src/app/pricing/page.tsx` — adds a `data-cta="enterprise-mailto"` attribute and a 5-line `// TEMP` comment on the Enterprise CTA explaining the placeholder + linking to follow-up #4.
+  - `docs/mike-2.1-deploy-checklist.md` — rewrites follow-up #4 to: mark it as **BLOCKS public launch**, call out both real gaps (no mailbox + no-op-on-default-browsers), and require either (mailbox + verified `mailto:` UX) or (Calendly/HubSpot replacement) before launch.
+- Tests: no new tests (option 2 has no behaviour change).
+- Build: PASS (`next build` with stub Supabase envs — pre-existing requirement, see Section 1).
+- Verify: `grep -n 'data-cta="enterprise-mailto"' frontend/src/app/pricing/page.tsx` returns one match; `grep -n "BLOCKS public launch" docs/mike-2.1-deploy-checklist.md` returns one match.
+- Revert command: `git revert <SHA>`
+
 ## Spec docs produced (not part of any single feature batch)
 
 Both shipped in commit `3da5dd9` (`docs(mike-2.1): add design tokens and frontend inventory specs`):

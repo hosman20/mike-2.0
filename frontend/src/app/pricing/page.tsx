@@ -174,8 +174,16 @@ function PlanCardView({ plan }: { plan: PlanCard }) {
             </ul>
             <div className="mt-6">
                 {isEnterprise ? (
+                    // TEMP: Phase 1 placeholder — `sales@mike.ai` mailbox is
+                    // not yet provisioned and this `mailto:` renders as a
+                    // broken link on browsers without a mail client. Replace
+                    // with a real Calendly/HubSpot form before public launch.
+                    // Tracked as deploy-checklist follow-up #4.
                     <Button asChild className="w-full" variant="outline">
-                        <a href="mailto:sales@mike.ai?subject=Enterprise inquiry">
+                        <a
+                            href="mailto:sales@mike.ai?subject=Enterprise inquiry"
+                            data-cta="enterprise-mailto"
+                        >
                             {plan.cta}
                         </a>
                     </Button>
