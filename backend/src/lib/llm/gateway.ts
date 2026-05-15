@@ -64,7 +64,7 @@ import { providerForModel } from "./models";
 // programmatically so static slug-format validators only flag the values.
 const _legacyKey = (parts: readonly string[]) => parts.join("-");
 
-const MODEL_ID_TABLE: Record<string, string> = {
+export const MODEL_ID_TABLE: Record<string, string> = {
     // Anthropic — versions are dotted on the gateway.
     [_legacyKey(["claude", "opus", "4", "7"])]: "anthropic/claude-opus-4.7",
     [_legacyKey(["claude", "sonnet", "4", "6"])]: "anthropic/claude-sonnet-4.6",
