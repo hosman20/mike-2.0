@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Check, AlertCircle } from "lucide-react";
+import { ChevronDown, Check } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -10,8 +10,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { isModelAvailable } from "@/app/lib/modelAvailability";
-import type { ApiKeyState } from "@/app/lib/mikeApi";
 
 export interface ModelOption {
     id: string;
@@ -37,16 +35,12 @@ const GROUP_ORDER: ModelOption["group"][] = ["Anthropic", "Google", "OpenAI"];
 interface Props {
     value: string;
     onChange: (id: string) => void;
-    apiKeys?: ApiKeyState;
 }
 
-export function ModelToggle({ value, onChange, apiKeys }: Props) {
+export function ModelToggle({ value, onChange }: Props) {
     const [isOpen, setIsOpen] = useState(false);
     const selected = MODELS.find((m) => m.id === value);
     const selectedLabel = selected?.label ?? "Model";
-    const selectedAvailable = apiKeys
-        ? isModelAvailable(value, apiKeys)
-        : true;
 
     return (
         <DropdownMenu onOpenChange={setIsOpen}>
@@ -54,15 +48,8 @@ export function ModelToggle({ value, onChange, apiKeys }: Props) {
                 <button
                     type="button"
                     className={`flex items-center gap-1.5 rounded-lg px-2 h-8 text-sm transition-colors cursor-pointer text-gray-400 hover:bg-gray-100 hover:text-gray-700 ${isOpen ? "bg-gray-100 text-gray-700" : ""}`}
-                    title={
-                        !selectedAvailable
-                            ? "API key missing for selected model"
-                            : "Choose model"
-                    }
+                    title="Choose model"
                 >
-                    {!selectedAvailable && (
-                        <AlertCircle className="h-3 w-3 shrink-0 text-red-500" />
-                    )}
                     <span className="max-w-[140px] truncate">{selectedLabel}</span>
                     <ChevronDown
                         className={`h-3 w-3 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
@@ -79,33 +66,18 @@ export function ModelToggle({ value, onChange, apiKeys }: Props) {
                             <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-400">
                                 {group}
                             </DropdownMenuLabel>
-                            {items.map((m) => {
-                                const available = apiKeys
-                                    ? isModelAvailable(m.id, apiKeys)
-                                    : true;
-                                return (
-                                    <DropdownMenuItem
-                                        key={m.id}
-                                        className="cursor-pointer"
-                                        onSelect={() => onChange(m.id)}
-                                    >
-                                        <span
-                                            className={`flex-1 ${available ? "" : "text-gray-400"}`}
-                                        >
-                                            {m.label}
-                                        </span>
-                                        {!available && (
-                                            <AlertCircle
-                                                className="h-3.5 w-3.5 text-red-500 ml-1"
-                                                aria-label="API key missing"
-                                            />
-                                        )}
-                                        {m.id === value && available && (
-                                            <Check className="h-3.5 w-3.5 text-gray-600 ml-1" />
-                                        )}
-                                    </DropdownMenuItem>
-                                );
-                            })}
+                            {items.map((m) => (
+                                <DropdownMenuItem
+                                    key={m.id}
+                                    className="cursor-pointer"
+                                    onSelect={() => onChange(m.id)}
+                                >
+                                    <span className="flex-1">{m.label}</span>
+                                    {m.id === value && (
+                                        <Check className="h-3.5 w-3.5 text-gray-600 ml-1" />
+                                    )}
+                                </DropdownMenuItem>
+                            ))}
                         </div>
                     );
                 })}

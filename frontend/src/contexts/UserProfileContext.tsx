@@ -11,12 +11,9 @@ import React, {
 import { useAuth } from "@/contexts/AuthContext";
 import { DEV_STUB_PROFILE, isDevAuthBypass } from "@/lib/devAuth";
 import {
-    type ApiKeyState,
-    type ApiKeyProvider,
     type SubscriptionInfo,
     type UserProfile as ApiUserProfile,
     getUserProfile,
-    saveApiKey,
     updateUserProfile,
 } from "@/app/lib/mikeApi";
 
@@ -28,7 +25,6 @@ interface UserProfile {
     creditsRemaining: number;
     tier: string;
     tabularModel: string;
-    apiKeys: ApiKeyState;
     subscription: SubscriptionInfo | null;
 }
 
@@ -41,10 +37,6 @@ interface UserProfileContextType {
         field: "tabularModel",
         value: string,
     ) => Promise<boolean>;
-    updateApiKey: (
-        provider: ApiKeyProvider,
-        value: string | null,
-    ) => Promise<boolean>;
     reloadProfile: () => Promise<void>;
     incrementMessageCredits: () => Promise<boolean>;
 }
@@ -53,31 +45,10 @@ const UserProfileContext = createContext<UserProfileContextType | undefined>(
     undefined,
 );
 
-const API_KEY_PROVIDERS: ApiKeyProvider[] = ["claude", "gemini", "openai"];
-
-function emptyApiKeys(): ApiKeyState {
-    return {
-        claude: { configured: false, source: null },
-        gemini: { configured: false, source: null },
-        openai: { configured: false, source: null },
-    };
-}
-
 function toProfile(data: ApiUserProfile): UserProfile {
-    const { apiKeyStatus, subscription, ...profile } = data;
-    const apiKeys = emptyApiKeys();
-    for (const provider of API_KEY_PROVIDERS) {
-        apiKeys[provider] = {
-            configured: !!apiKeyStatus[provider],
-            source:
-                apiKeyStatus.sources?.[provider] ??
-                (apiKeyStatus[provider] ? "user" : null),
-        };
-    }
-
+    const { subscription, ...profile } = data;
     return {
         ...profile,
-        apiKeys,
         subscription: subscription ?? null,
     };
 }
@@ -111,7 +82,6 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 creditsRemaining: 999999, // temporarily unlimited
                 tier: "Free",
                 tabularModel: "gemini-3-flash-preview",
-                apiKeys: emptyApiKeys(),
                 subscription: null,
             });
         } finally {
@@ -183,37 +153,6 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         [user],
     );
 
-    const updateApiKey = useCallback(
-        async (
-            provider: ApiKeyProvider,
-            value: string | null,
-        ): Promise<boolean> => {
-            if (!user) return false;
-            const normalized = value?.trim() ? value.trim() : null;
-            try {
-                await saveApiKey(provider, normalized);
-                setProfile((prev) =>
-                    prev
-                        ? {
-                              ...prev,
-                              apiKeys: {
-                                  ...prev.apiKeys,
-                                  [provider]: {
-                                      configured: !!normalized,
-                                      source: normalized ? "user" : null,
-                                  },
-                              },
-                          }
-                        : null,
-                );
-                return true;
-            } catch {
-                return false;
-            }
-        },
-        [user],
-    );
-
     const reloadProfile = useCallback(async () => {
         if (user) {
             await loadProfile();
@@ -241,7 +180,6 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 updateDisplayName,
                 updateOrganisation,
                 updateModelPreference,
-                updateApiKey,
                 reloadProfile,
                 incrementMessageCredits,
             }}

@@ -164,7 +164,6 @@ export interface UserProfile {
     creditsRemaining: number;
     tier: string;
     tabularModel: string;
-    apiKeyStatus: ApiKeyStatus;
     subscription: SubscriptionInfo | null;
 }
 
@@ -181,31 +180,6 @@ export async function updateUserProfile(payload: {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-    });
-}
-
-export type ApiKeyProvider = "claude" | "gemini" | "openai";
-export type ApiKeySource = "user" | "env" | null;
-export type ApiKeyState = Record<
-    ApiKeyProvider,
-    {
-        configured: boolean;
-        source: ApiKeySource;
-    }
->;
-
-export type ApiKeyStatus = Record<ApiKeyProvider, boolean> & {
-    sources?: Partial<Record<ApiKeyProvider, ApiKeySource>>;
-};
-
-export async function saveApiKey(
-    provider: ApiKeyProvider,
-    apiKey: string | null,
-): Promise<ApiKeyStatus> {
-    return apiRequest<ApiKeyStatus>(`/user/api-keys/${provider}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ api_key: apiKey }),
     });
 }
 

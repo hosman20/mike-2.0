@@ -35,11 +35,6 @@ vi.mock("@/contexts/UserProfileContext", () => ({
             creditsRemaining: 999999,
             tier: "Free",
             tabularModel: "gemini-3-flash-preview",
-            apiKeys: {
-                claude: { configured: false, source: null },
-                gemini: { configured: false, source: null },
-                openai: { configured: false, source: null },
-            },
             subscription: {
                 tier: "trial",
                 status: "trialing",

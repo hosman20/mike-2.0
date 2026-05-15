@@ -48,15 +48,5 @@ export const DEV_STUB_PROFILE: UserProfile = {
     creditsRemaining: 999_999,
     tier: "professional",
     tabularModel: "gemini-3-flash-preview",
-    apiKeyStatus: {
-        claude: false,
-        gemini: false,
-        openai: false,
-        sources: {
-            claude: null,
-            gemini: null,
-            openai: null,
-        },
-    },
     subscription: DEV_SUBSCRIPTION,
 };
