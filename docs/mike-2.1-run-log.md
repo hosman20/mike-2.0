@@ -174,7 +174,7 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Note: this resolves follow-up #6 from the parked deploy-checklist list (Phase 2 will replace the stub with the real playbook system).
 - Revert command: `git revert cc285cd`
 
-### Batch C — Enterprise CTA placeholder marker (commit: TBD)
+### Batch C — Enterprise CTA placeholder marker (commit: 5bae3f2)
 
 - Goal: Phase 1 cleanup — parked follow-up #4. The Enterprise tier on `/pricing` links to `mailto:sales@mike.ai`, which (a) targets an unprovisioned mailbox and (b) renders as a no-op on browsers without a configured mail client. A full inline sales-contact dialog (option 1 in the batch brief) would have exceeded the ~50 LOC ceiling once the modal scaffold + a11y + copy-to-clipboard + 2 tests were in, so we fall back to option 2: keep the `mailto:` for now, mark it explicitly in code, and tighten the deploy-checklist gate.
 - Files modified:
@@ -183,7 +183,7 @@ git revert --no-commit <sha1> <sha2> ...   # undo a range, single revert commit
 - Tests: no new tests (option 2 has no behaviour change).
 - Build: PASS (`next build` with stub Supabase envs — pre-existing requirement, see Section 1).
 - Verify: `grep -n 'data-cta="enterprise-mailto"' frontend/src/app/pricing/page.tsx` returns one match; `grep -n "BLOCKS public launch" docs/mike-2.1-deploy-checklist.md` returns one match.
-- Revert command: `git revert <SHA>`
+- Revert command: `git revert 5bae3f2`
 
 ## Spec docs produced (not part of any single feature batch)
 
