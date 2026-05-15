@@ -151,6 +151,15 @@ billingRouter.post("/webhook", async (req, res) => {
 
 // ---------------------------------------------------------------------------
 // Event dispatch
+//
+// Handled events:
+//   - checkout.session.completed       → upsert subscription row, reset counter
+//   - customer.subscription.created    → sync tier/status (also covered by checkout)
+//   - customer.subscription.updated    → sync tier/status/cancel flag
+//   - customer.subscription.deleted    → mark canceled
+//   - invoice.paid                     → reset monthly token counter on renewal
+//                                        (gated on billing_reason ∈ subscription_*)
+// All others are acknowledged with 200 and ignored.
 // ---------------------------------------------------------------------------
 
 export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
@@ -170,6 +179,9 @@ export async function handleStripeEvent(event: Stripe.Event): Promise<void> {
             await onSubscriptionDeleted(
                 event.data.object as Stripe.Subscription,
             );
+            return;
+        case "invoice.paid":
+            await onInvoicePaid(event.data.object as Stripe.Invoice);
             return;
         default:
             // Acknowledge but ignore — Stripe sends a wide event firehose.
@@ -332,6 +344,97 @@ async function onSubscriptionDeleted(
             .update(update)
             .eq("stripe_customer_id", customerId);
     }
+}
+
+/**
+ * Handle `invoice.paid` — fired when Stripe successfully collects payment on
+ * an invoice. For *subscription* invoices this is our renewal signal, and
+ * we use it to reset the monthly token-usage counter.
+ *
+ * Stripe documents `invoice.billing_reason` as one of:
+ *   subscription_create | subscription_cycle | subscription_update |
+ *   subscription_threshold | subscription | manual | upcoming | quote_accept |
+ *   automatic_pending_invoice_item_invoice
+ *
+ * The renewal-style reasons that should zero the counter are
+ * `subscription_cycle` (recurring renewal — the canonical monthly trigger)
+ * and `subscription_create` (the very first invoice on a brand new
+ * subscription). Other reasons — especially `manual` (one-off invoices) and
+ * `subscription_update` (proration mid-cycle) — must NOT reset the counter,
+ * otherwise mid-cycle plan changes or one-off charges would silently grant
+ * the user a fresh budget.
+ *
+ * Idempotent: if no subscription row matches the Stripe subscription id,
+ * we log and return without erroring (mirrors `onSubscriptionUpdated`).
+ */
+async function onInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
+    const reason = invoice.billing_reason;
+    if (reason !== "subscription_cycle" && reason !== "subscription_create") {
+        // One-off invoice, mid-cycle proration, etc. — not a renewal.
+        return;
+    }
+
+    // `invoice.subscription` was top-level on older API versions and moved
+    // to `invoice.parent.subscription_details.subscription` on newer ones.
+    // Read both, in priority order, to tolerate SDK/API drift.
+    const subId = extractInvoiceSubscriptionId(invoice);
+    if (!subId) {
+        console.warn(
+            "[billing/webhook] invoice.paid without subscription id",
+            invoice.id,
+        );
+        return;
+    }
+
+    // Prefer Stripe's authoritative period_start (unix seconds) over wall
+    // clock — keeps our reset aligned with Stripe's billing cycle.
+    const periodStart =
+        typeof invoice.period_start === "number" && invoice.period_start > 0
+            ? new Date(invoice.period_start * 1000).toISOString()
+            : new Date().toISOString();
+
+    const db = createServerSupabase();
+    const { data } = await db
+        .from("subscriptions")
+        .update({
+            tokens_used_this_period: 0,
+            period_started_at: periodStart,
+            // Defensive: a paid invoice means the subscription is current.
+            status: "active",
+            updated_at: new Date().toISOString(),
+        })
+        .eq("stripe_subscription_id", subId)
+        .select("id")
+        .maybeSingle();
+
+    if (!data) {
+        console.warn(
+            "[billing/webhook] invoice.paid for unknown subscription id",
+            subId,
+        );
+    }
+}
+
+function extractInvoiceSubscriptionId(
+    invoice: Stripe.Invoice,
+): string | null {
+    // Older API: `invoice.subscription` (string | Subscription | null).
+    const top = (invoice as unknown as {
+        subscription?: string | { id?: string } | null;
+    }).subscription;
+    if (typeof top === "string" && top) return top;
+    if (top && typeof top === "object" && typeof top.id === "string") {
+        return top.id;
+    }
+    // Newer API: `invoice.parent.subscription_details.subscription`.
+    const parent = (invoice as unknown as {
+        parent?: {
+            subscription_details?: { subscription?: string | null } | null;
+        } | null;
+    }).parent;
+    const nested = parent?.subscription_details?.subscription;
+    if (typeof nested === "string" && nested) return nested;
+    return null;
 }
 
 function subscriptionPeriodEnd(sub: Stripe.Subscription): string | null {

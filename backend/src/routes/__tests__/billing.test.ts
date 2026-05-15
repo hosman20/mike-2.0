@@ -217,4 +217,73 @@ describe("handleStripeEvent — event handlers", () => {
         const args = updateMock.mock.calls[0]?.[0] as Record<string, unknown>;
         expect(args.status).toBe("canceled");
     });
+
+    test("invoice.paid (subscription_cycle) resets the token counter", async () => {
+        // 2026-01-01T00:00:00Z in unix seconds.
+        const periodStartSec = 1767225600;
+        await handleStripeEvent({
+            id: "evt_3",
+            type: "invoice.paid",
+            data: {
+                object: {
+                    id: "in_1",
+                    subscription: "sub_123",
+                    billing_reason: "subscription_cycle",
+                    period_start: periodStartSec,
+                },
+            },
+        } as never);
+        expect(updateMock).toHaveBeenCalledOnce();
+        const args = updateMock.mock.calls[0]?.[0] as Record<string, unknown>;
+        expect(args.tokens_used_this_period).toBe(0);
+        expect(args.status).toBe("active");
+        expect(args.period_started_at).toBe(
+            new Date(periodStartSec * 1000).toISOString(),
+        );
+        // Match was scoped by stripe_subscription_id.
+        expect(eqMock).toHaveBeenCalledWith(
+            "stripe_subscription_id",
+            "sub_123",
+        );
+    });
+
+    test("invoice.paid (manual / one-off) does NOT touch the DB", async () => {
+        await handleStripeEvent({
+            id: "evt_4",
+            type: "invoice.paid",
+            data: {
+                object: {
+                    id: "in_2",
+                    subscription: "sub_123",
+                    billing_reason: "manual",
+                    period_start: 1767225600,
+                },
+            },
+        } as never);
+        expect(updateMock).not.toHaveBeenCalled();
+        expect(upsertMock).not.toHaveBeenCalled();
+    });
+
+    test("invoice.paid for unknown subscription id logs and returns 200", async () => {
+        // Terminal returns no row → handler must not throw.
+        supabaseTerminal = { data: null };
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        await expect(
+            handleStripeEvent({
+                id: "evt_5",
+                type: "invoice.paid",
+                data: {
+                    object: {
+                        id: "in_3",
+                        subscription: "sub_unknown",
+                        billing_reason: "subscription_cycle",
+                        period_start: 1767225600,
+                    },
+                },
+            } as never),
+        ).resolves.toBeUndefined();
+        expect(updateMock).toHaveBeenCalledOnce();
+        expect(warn).toHaveBeenCalled();
+        warn.mockRestore();
+    });
 });

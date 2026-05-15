@@ -78,14 +78,15 @@ Use **test mode** prices for dev/staging, **live mode** prices for production. T
 In Stripe Dashboard → Developers → Webhooks:
 
 - **Endpoint URL**: `https://<backend-host>/api/billing/webhook`
-- **Events to subscribe** (exactly these four):
+- **Events to subscribe** (exactly these five):
   - `checkout.session.completed`
   - `customer.subscription.created`
   - `customer.subscription.updated`
   - `customer.subscription.deleted`
+  - `invoice.paid`
 - Copy the signing secret → `STRIPE_WEBHOOK_SECRET=whsec_…` in backend env.
 
-**Note**: `invoice.paid` is NOT currently subscribed — monthly token-counter resets are not yet wired for renewals. See Section 4.
+**Webhook config note**: The endpoint must subscribe to `invoice.paid` in addition to the existing four events — the handler resets `tokens_used_this_period` to 0 on each monthly renewal (gated on `billing_reason ∈ {subscription_cycle, subscription_create}` so one-off invoices and mid-cycle prorations don't grant a fresh budget). For local CLI forwarding: `stripe listen --events invoice.paid,checkout.session.completed,customer.subscription.created,customer.subscription.updated,customer.subscription.deleted --forward-to localhost:8080/billing/webhook`.
 
 ### 3. Supabase — apply migration and backfill
 
@@ -151,7 +152,7 @@ In the Vercel project hosting the **backend** (or your gateway-owning Vercel pro
 Carry these into the Phase 1 hotfix backlog. None block first deploy, but each is real.
 
 1. **Dead modal imports**: `ApiKeyMissingModal` and `modelAvailability` are still imported by chat and tabular components, but the backend no longer triggers them (all routing is through AI Gateway with platform-paid keys). Needs a UI-cleanup pass to remove the imports and the modals themselves.
-2. **Token counter resets only on checkout**: `tokens_used_this_period` is zeroed on `checkout.session.completed`, but not on `invoice.paid` for monthly renewals. Users who renew without changing plan will keep accumulating against last period's counter until next plan change. Fix: subscribe to `invoice.paid` and reset `period_started_at` + `tokens_used_this_period` to 0.
+2. ~~**Token counter resets only on checkout**~~ **RESOLVED** (Phase 1 cleanup): `invoice.paid` is now handled in `backend/src/routes/billing.ts` and resets `tokens_used_this_period` + `period_started_at` on subscription renewals (gated on `billing_reason ∈ {subscription_cycle, subscription_create}`). Stripe webhook endpoint must include `invoice.paid` in subscribed events — see Section 2.
 3. **No seat enforcement**: `subscriptions` schema models per-user tiers but multi-seat tiers (Professional / Enterprise) have no seat count, no invitation flow, and no per-seat usage attribution. Enterprise sales conversations will hit this immediately.
 4. **Enterprise CTA placeholder**: `/pricing` Enterprise tier links to `sales@mike.ai` — set up the real mailbox or replace with a Calendly/HubSpot form before public launch.
 5. **Mobile chrome gap**: At `<md` breakpoint both nav columns are hidden — no drawer/hamburger fallback yet. Mobile users are stuck on the home route. P2 for first launch since target audience (law firm desktops) is desktop-first.
